@@ -128,7 +128,7 @@ impl ScreenGrabber {
                 ..Default::default()
             };
 
-            let expected_size = (self.width * self.height * 4) as usize;
+            let expected_size = (width * height * 4) as usize;
             if buf.len() < expected_size {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
