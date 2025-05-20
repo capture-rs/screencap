@@ -17,6 +17,12 @@ impl Region {
         }
     }
     pub fn check(&self, full_width: u32, full_height: u32) -> io::Result<()> {
+        if self.width == 0 || self.height == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "width or height cannot be 0",
+            ));
+        }
         if self.left + self.width > full_width {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
