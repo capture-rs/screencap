@@ -83,7 +83,7 @@ impl Monitor {
             {
                 return Err(io::Error::last_os_error());
             }
-            Ok((device_mode.dmPelsWidth, device_mode.dmPelsWidth))
+            Ok((device_mode.dmPelsWidth, device_mode.dmPelsHeight))
         }
     }
     pub fn device_name_wide(&self) -> io::Result<Vec<u16>> {

@@ -1,6 +1,7 @@
-use screencap::{CaptureType, Monitor, Region};
+use image::RgbImage;
+use screencap::{CaptureType, Monitor, PixelFormat, Region};
 use std::io;
-mod common;
+use std::path::Path;
 
 fn main() -> io::Result<()> {
     let list = Monitor::all()?;
@@ -24,7 +25,11 @@ fn main() -> io::Result<()> {
 
     let mut buf = vec![0; (width * height * 4) as usize];
 
-    let len = grabber.next_frame_region(&mut buf, region)?;
-    common::image::save_to_file(width, height, &buf[..len]);
+    let (len, width, height) =
+        grabber.next_frame_region_format(&mut buf, Some(region), PixelFormat::RGB)?;
+    let image =
+        RgbImage::from_raw(width, height, buf[..len].to_vec()).expect("Failed to create image");
+    let path = Path::new("screenshot.jpg");
+    image.save(path).expect("Failed to save image");
     Ok(())
 }
