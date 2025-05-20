@@ -2,7 +2,7 @@
 Capture screen data
 
 ```rust
-use screencap::{CaptureType, Monitor, Region};
+use screencap::{CaptureType, Monitor, Region, PixelFormat};
 use std::io;
 
 fn main() -> io::Result<()> {
@@ -28,6 +28,8 @@ fn main() -> io::Result<()> {
     let mut buf = vec![0; (width * height * 4) as usize];
     // 获取BGRA数据
     let len = grabber.next_frame_region(&mut buf, region)?;
+    // 获取RGB数据
+    let (len, width, height) = grabber.next_frame_region(&mut buf, Some(region), PixelFormat::RGB)?;
     Ok(())
 }
 ```
