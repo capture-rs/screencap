@@ -41,10 +41,7 @@ pub trait Grabber {
             })
         }
     }
-    fn next_frame_region(&mut self, buf: &mut [u8], region: Region) -> io::Result<usize> {
-        self.next_frame_impl(buf, Some(region))
-            .map(|(len, _, _)| len)
-    }
+
     fn next_frame(&mut self, buf: &mut [u8]) -> io::Result<(usize, u32, u32)> {
         self.next_frame_impl(buf, None)
     }

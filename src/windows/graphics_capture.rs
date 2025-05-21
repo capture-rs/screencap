@@ -58,7 +58,7 @@ impl ScreenGrabber {
         Ok(GraphicsCaptureSession::IsSupported()?)
     }
 
-    pub fn new(monitor: Monitor) -> io::Result<Self> {
+    pub fn new(monitor: &Monitor) -> io::Result<Self> {
         if !Self::is_supported()? {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
@@ -214,7 +214,7 @@ fn create_direct3d_device(device: &ID3D11Device) -> io::Result<IDirect3DDevice> 
     }
 }
 
-fn create_capture_item_for_monitor(monitor: Monitor) -> io::Result<GraphicsCaptureItem> {
+fn create_capture_item_for_monitor(monitor: &Monitor) -> io::Result<GraphicsCaptureItem> {
     unsafe {
         let h_monitor = monitor.h_monitor();
         let interop: IGraphicsCaptureItemInterop =
