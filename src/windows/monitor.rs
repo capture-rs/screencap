@@ -8,7 +8,7 @@ use windows::Win32::Graphics::Gdi::{
     DISPLAY_DEVICEW, ENUM_CURRENT_SETTINGS, HDC, HMONITOR, MONITOR_DEFAULTTOPRIMARY,
 };
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Monitor {
     index: u32,
     h_monitor: HMONITOR,
@@ -33,8 +33,8 @@ impl Monitor {
     pub fn from_index(index: u32) -> io::Result<Self> {
         let monitors = Self::all()?;
         monitors
-            .into_iter()
-            .find(|m| m.index == index)
+            .get(index as usize)
+            .cloned()
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Monitor index out of range"))
     }
 

@@ -20,7 +20,7 @@ pub struct ScreenGrabber {
 }
 
 impl ScreenGrabber {
-    pub fn new(monitor: Monitor) -> io::Result<Self> {
+    pub fn new(monitor: &Monitor) -> io::Result<Self> {
         unsafe {
             let mut device = None;
             let mut context = None;

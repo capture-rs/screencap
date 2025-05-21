@@ -26,7 +26,7 @@ impl Drop for ScreenGrabber {
     }
 }
 impl ScreenGrabber {
-    pub fn new(monitor: Monitor) -> io::Result<Self> {
+    pub fn new(monitor: &Monitor) -> io::Result<Self> {
         unsafe {
             let device_name = monitor.device_name_wide()?;
             let hdc_screen = CreateDCW(PCWSTR(device_name.as_ptr()), None, None, None);
@@ -53,7 +53,7 @@ impl ScreenGrabber {
                 return Err(io::Error::last_os_error());
             }
             Ok(Self {
-                monitor,
+                monitor: monitor.clone(),
                 hdc_screen,
                 hdc_mem,
                 width,
@@ -84,10 +84,6 @@ impl ScreenGrabber {
         self.height = new_height;
         Ok(())
     }
-    pub fn next_frame_region(&mut self, buf: &mut [u8], region: Region) -> io::Result<usize> {
-        self.next_frame_impl(buf, Some(region))
-            .map(|(len, _, _)| len)
-    }
     pub fn next_frame(&mut self, buf: &mut [u8]) -> io::Result<(usize, u32, u32)> {
         self.next_frame_impl(buf, None)
     }
@@ -98,10 +94,11 @@ impl ScreenGrabber {
     ) -> io::Result<(usize, u32, u32)> {
         self.check_size()?;
         let (x, y, width, height) = if let Some(r) = region {
-            (r.left, self.height - r.top, r.width, r.height)
+            (r.left, r.top, r.width, r.height)
         } else {
             (0, 0, self.width, self.height)
         };
+
         unsafe {
             BitBlt(
                 self.hdc_mem,
@@ -140,16 +137,19 @@ impl ScreenGrabber {
                 self.hdc_mem,
                 self.hbmp,
                 0,
-                self.height,
+                height,
                 Some(buf.as_mut_ptr() as *mut _),
                 &mut info,
                 DIB_RGB_COLORS,
             );
             if res == 0 {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "GetDIBits error",
+                ));
             }
 
-            Ok((expected_size, self.width, self.height))
+            Ok((expected_size, width, height))
         }
     }
 }
