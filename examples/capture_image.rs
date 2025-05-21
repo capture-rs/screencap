@@ -8,7 +8,7 @@ fn main() -> io::Result<()> {
         println!("{x:?},{:?}", x.size())
     }
     let monitor = Monitor::primary()?;
-    let mut grabber = screencap::ScreenGrabber::new(monitor, CaptureType::Graphics)?;
+    let mut grabber = screencap::ScreenGrabber::new(&monitor, CaptureType::default())?;
     // 避免第一帧黑帧
     std::thread::sleep(std::time::Duration::from_millis(100));
     let (width, height) = monitor.size()?;
