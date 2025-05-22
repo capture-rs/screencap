@@ -23,5 +23,13 @@ xcb = { version = "1.5.0",features = ["randr"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 core-graphics = "0.24.0"
 
+[package.metadata.docs.rs]
+all-features = true
+targets = [
+    "x86_64-pc-windows-msvc",
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin"
+]
+
 [dev-dependencies]
 image = "0.25.6"
