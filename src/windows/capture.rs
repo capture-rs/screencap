@@ -11,7 +11,7 @@ enum CaptureBackend {
     Gdi(gdi::ScreenGrabber),
 }
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
-pub enum CaptureType {
+pub enum CaptureMethod {
     Graphics,
     Dxgi,
     Gdi,
@@ -43,35 +43,35 @@ impl ScreenGrabber {
             backend: CaptureBackend::Gdi(grabber),
         })
     }
-    pub fn new(monitor: &Monitor, capture_type: CaptureType) -> io::Result<Self> {
+    pub fn new(monitor: &Monitor, capture_type: CaptureMethod) -> io::Result<Self> {
         let backend = match capture_type {
-            CaptureType::Graphics => {
+            CaptureMethod::Graphics => {
                 CaptureBackend::Graphics(graphics_capture::ScreenGrabber::new(monitor)?)
             }
-            CaptureType::Dxgi => CaptureBackend::Dxgi(dxgi::ScreenGrabber::new(monitor)?),
-            CaptureType::Gdi => CaptureBackend::Gdi(gdi::ScreenGrabber::new(monitor)?),
-            CaptureType::Compatible => return Self::from_monitor(monitor),
+            CaptureMethod::Dxgi => CaptureBackend::Dxgi(dxgi::ScreenGrabber::new(monitor)?),
+            CaptureMethod::Gdi => CaptureBackend::Gdi(gdi::ScreenGrabber::new(monitor)?),
+            CaptureMethod::Compatible => return Self::from_monitor(monitor),
         };
         Ok(Self { backend })
     }
 
-    pub fn next_frame(&mut self, buf: &mut [u8]) -> io::Result<(usize, u32, u32)> {
+    pub fn next_frame<B: Buffer>(&mut self, buf: &mut B) -> io::Result<(usize, u32, u32)> {
         match &mut self.backend {
             CaptureBackend::Graphics(g) => g.next_frame(buf),
             CaptureBackend::Dxgi(g) => g.next_frame(buf),
             CaptureBackend::Gdi(g) => g.next_frame(buf),
         }
     }
-    pub fn next_frame_region(
+    pub fn next_frame_region<B: Buffer>(
         &mut self,
-        buf: &mut [u8],
+        buf: &mut B,
         region: Region,
     ) -> io::Result<(usize, u32, u32)> {
         self.next_frame_region_inner(buf, Some(region))
     }
-    fn next_frame_region_inner(
+    fn next_frame_region_inner<B: Buffer>(
         &mut self,
-        buf: &mut [u8],
+        buf: &mut B,
         region: Option<Region>,
     ) -> io::Result<(usize, u32, u32)> {
         match &mut self.backend {
@@ -81,13 +81,14 @@ impl ScreenGrabber {
         }
     }
 
-    pub fn next_frame_region_format(
+    pub fn next_frame_region_format<B: Buffer>(
         &mut self,
-        buf: &mut [u8],
+        buf: &mut B,
         region: Option<Region>,
         pixel_format: PixelFormat,
     ) -> io::Result<(usize, u32, u32)> {
         let (mut len, width, height) = self.next_frame_region_inner(buf, region)?;
+        let buf = buf.as_mut();
         match pixel_format {
             PixelFormat::RGB => len = convert_bgra_to_rgb(&mut buf[..len], width, height),
             PixelFormat::RGBA => convert_bgra_to_rgba(&mut buf[..len], width, height),
@@ -95,5 +96,12 @@ impl ScreenGrabber {
             PixelFormat::BGRA => {}
         }
         Ok((len, width, height))
+    }
+    pub fn capture_method(&self) -> CaptureMethod {
+        match &self.backend {
+            CaptureBackend::Graphics(_) => CaptureMethod::Graphics,
+            CaptureBackend::Dxgi(_) => CaptureMethod::Dxgi,
+            CaptureBackend::Gdi(_) => CaptureMethod::Gdi,
+        }
     }
 }

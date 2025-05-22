@@ -1,5 +1,5 @@
 use crate::windows::monitor::Monitor;
-use crate::Region;
+use crate::{Buffer, Region};
 use std::io;
 use windows::core::PCWSTR;
 use windows::Win32::Graphics::Gdi::{
@@ -84,12 +84,12 @@ impl ScreenGrabber {
         self.height = new_height;
         Ok(())
     }
-    pub fn next_frame(&mut self, buf: &mut [u8]) -> io::Result<(usize, u32, u32)> {
+    pub fn next_frame<B: Buffer>(&mut self, buf: &mut B) -> io::Result<(usize, u32, u32)> {
         self.next_frame_impl(buf, None)
     }
-    pub fn next_frame_impl(
+    pub fn next_frame_impl<B: Buffer>(
         &mut self,
-        buf: &mut [u8],
+        buf: &mut B,
         region: Option<Region>,
     ) -> io::Result<(usize, u32, u32)> {
         self.check_size()?;
@@ -124,8 +124,9 @@ impl ScreenGrabber {
                 },
                 ..Default::default()
             };
-
             let expected_size = (width * height * 4) as usize;
+            buf.resize(expected_size, 0);
+            let buf = buf.as_mut();
             if buf.len() < expected_size {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
