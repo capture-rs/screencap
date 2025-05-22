@@ -7,6 +7,9 @@ use windows::Win32::Graphics::Gdi::{
     EnumDisplayDevicesW, EnumDisplayMonitors, EnumDisplaySettingsW, MonitorFromPoint, DEVMODEW,
     DISPLAY_DEVICEW, ENUM_CURRENT_SETTINGS, HDC, HMONITOR, MONITOR_DEFAULTTOPRIMARY,
 };
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+};
 
 #[derive(Clone, Debug)]
 pub struct Monitor {
@@ -113,5 +116,32 @@ impl Monitor {
             let os_str = OsString::from_wide(&device.DeviceName[..len]);
             Ok(os_str.to_string_lossy().into_owned())
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct VirtualScreen {}
+impl VirtualScreen {
+    pub fn new() -> io::Result<Self> {
+        Ok(VirtualScreen {})
+    }
+    pub fn rect(&self) -> io::Result<(i32, i32, u32, u32)> {
+        let left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
+        let top = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
+        let (width, height) = self.size()?;
+        Ok((left, top, width, height))
+    }
+
+    pub fn size(&self) -> io::Result<(u32, u32)> {
+        let width = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
+        let height = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
+
+        if width <= 0 || height <= 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to retrieve virtual screen dimensions",
+            ));
+        }
+        Ok((width as u32, height as u32))
     }
 }

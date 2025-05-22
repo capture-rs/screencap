@@ -1,8 +1,10 @@
-use screencap::{CaptureMethod, Monitor};
+use screencap::{CaptureMethod, Monitor, VirtualScreen};
 use std::io;
 mod common;
 
 fn main() -> io::Result<()> {
+    let screen = VirtualScreen::new()?;
+    println!("{:?}", screen.rect());
     let list = Monitor::all()?;
     for x in list {
         println!("{x:?},{:?}", x.size())

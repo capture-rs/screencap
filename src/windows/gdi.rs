@@ -1,17 +1,39 @@
 use crate::windows::monitor::Monitor;
-use crate::{Buffer, Region};
+use crate::{Buffer, Region, VirtualScreen};
 use std::io;
 use windows::core::PCWSTR;
 use windows::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, CreateDCW, DeleteDC, DeleteObject,
-    GetDIBits, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP,
+    GetDIBits, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HDC,
     SRCCOPY,
 };
 
+pub(crate) enum ScreenTarget {
+    Virtual(VirtualScreen),
+    Monitor(Monitor),
+}
+impl ScreenTarget {
+    pub fn size(&self) -> io::Result<(u32, u32)> {
+        match &self {
+            ScreenTarget::Virtual(v) => v.size(),
+            ScreenTarget::Monitor(v) => v.size(),
+        }
+    }
+    #[allow(dead_code)]
+    pub fn rect(&self) -> io::Result<(i32, i32, u32, u32)> {
+        match &self {
+            ScreenTarget::Virtual(v) => v.rect(),
+            ScreenTarget::Monitor(v) => {
+                let (w, h) = v.size()?;
+                Ok((0, 0, w, h))
+            }
+        }
+    }
+}
 pub struct ScreenGrabber {
-    monitor: Monitor,
-    hdc_screen: windows::Win32::Graphics::Gdi::HDC,
-    hdc_mem: windows::Win32::Graphics::Gdi::HDC,
+    screen_target: ScreenTarget,
+    hdc_screen: HDC,
+    hdc_mem: HDC,
     width: u32,
     height: u32,
     hbmp: HBITMAP,
@@ -26,10 +48,17 @@ impl Drop for ScreenGrabber {
     }
 }
 impl ScreenGrabber {
+    pub fn new_virtual(virtual_screen: &VirtualScreen) -> io::Result<ScreenGrabber> {
+        let hdc_screen = unsafe { windows::Win32::Graphics::Gdi::GetDC(None) };
+        Self::new_screen(ScreenTarget::Virtual(virtual_screen.clone()), hdc_screen)
+    }
     pub fn new(monitor: &Monitor) -> io::Result<Self> {
+        let device_name = monitor.device_name_wide()?;
+        let hdc_screen = unsafe { CreateDCW(PCWSTR(device_name.as_ptr()), None, None, None) };
+        Self::new_screen(ScreenTarget::Monitor(monitor.clone()), hdc_screen)
+    }
+    fn new_screen(screen_target: ScreenTarget, hdc_screen: HDC) -> io::Result<Self> {
         unsafe {
-            let device_name = monitor.device_name_wide()?;
-            let hdc_screen = CreateDCW(PCWSTR(device_name.as_ptr()), None, None, None);
             if hdc_screen.is_invalid() {
                 return Err(io::Error::last_os_error());
             }
@@ -38,7 +67,7 @@ impl ScreenGrabber {
                 _ = DeleteDC(hdc_screen);
                 return Err(io::Error::last_os_error());
             }
-            let (width, height) = monitor.size()?;
+            let (width, height) = screen_target.size()?;
             let hbmp = CreateCompatibleBitmap(hdc_screen, width as _, height as _);
             if hbmp.is_invalid() {
                 _ = DeleteDC(hdc_mem);
@@ -53,7 +82,7 @@ impl ScreenGrabber {
                 return Err(io::Error::last_os_error());
             }
             Ok(Self {
-                monitor: monitor.clone(),
+                screen_target,
                 hdc_screen,
                 hdc_mem,
                 width,
@@ -63,7 +92,7 @@ impl ScreenGrabber {
         }
     }
     fn check_size(&mut self) -> io::Result<()> {
-        let (new_width, new_height) = self.monitor.size()?;
+        let (new_width, new_height) = self.screen_target.size()?;
         if self.width == new_width && self.height == new_height {
             return Ok(());
         }

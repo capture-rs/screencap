@@ -2,7 +2,7 @@ use crate::common::*;
 use crate::windows::common::Grabber;
 use crate::windows::monitor::Monitor;
 use crate::windows::{dxgi, gdi, graphics_capture};
-use crate::{PixelFormat, Region};
+use crate::{PixelFormat, Region, VirtualScreen};
 use std::io;
 
 enum CaptureBackend {
@@ -24,6 +24,22 @@ pub struct ScreenGrabber {
 }
 
 impl ScreenGrabber {
+    pub fn new_virtual(
+        virtual_screen: &VirtualScreen,
+        capture_type: CaptureMethod,
+    ) -> io::Result<ScreenGrabber> {
+        let backend = match capture_type {
+            CaptureMethod::Graphics => {
+                todo!()
+            }
+            CaptureMethod::Dxgi => todo!(),
+            CaptureMethod::Gdi => {
+                CaptureBackend::Gdi(gdi::ScreenGrabber::new_virtual(virtual_screen)?)
+            }
+            CaptureMethod::Compatible => todo!(),
+        };
+        Ok(Self { backend })
+    }
     fn from_monitor(monitor: &Monitor) -> io::Result<Self> {
         if let Ok(grabber) = graphics_capture::ScreenGrabber::new(monitor) {
             return Ok(Self {
