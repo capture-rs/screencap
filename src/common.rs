@@ -97,3 +97,18 @@ pub(crate) fn convert_bgra_to_rgb(buf: &mut [u8], width: u32, height: u32) -> us
 
     dst_len
 }
+pub trait Buffer: AsMut<[u8]> + AsRef<[u8]> {
+    fn resize(&mut self, _new_len: usize, _value: u8) {}
+}
+impl Buffer for Vec<u8> {
+    fn resize(&mut self, new_len: usize, value: u8) {
+        Vec::<u8>::resize(self, new_len, value);
+    }
+}
+impl Buffer for &mut Vec<u8> {
+    fn resize(&mut self, new_len: usize, value: u8) {
+        Vec::<u8>::resize(*self, new_len, value);
+    }
+}
+impl Buffer for &mut [u8] {}
+impl Buffer for [u8] {}

@@ -1,6 +1,6 @@
 use crate::windows::common::Grabber;
 use crate::windows::monitor::Monitor;
-use crate::Region;
+use crate::{Buffer, Region};
 use std::io;
 use std::ops::Deref;
 use std::sync::mpsc::{self, Receiver};
@@ -157,9 +157,9 @@ impl Grabber for ScreenGrabber {
     fn get_context(&self) -> &ID3D11DeviceContext {
         &self.context
     }
-    fn next_frame_impl(
+    fn next_frame_impl<B: Buffer>(
         &mut self,
-        buf: &mut [u8],
+        buf: &mut B,
         region: Option<Region>,
     ) -> io::Result<(usize, u32, u32)> {
         let (texture, _guard) = self.next_texture()?;

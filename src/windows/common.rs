@@ -1,4 +1,4 @@
-use crate::Region;
+use crate::{Buffer, Region};
 use std::io;
 use windows::Win32::Graphics::Direct3D11::{
     ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D, D3D11_BOX, D3D11_CPU_ACCESS_READ,
@@ -42,22 +42,22 @@ pub trait Grabber {
         }
     }
 
-    fn next_frame(&mut self, buf: &mut [u8]) -> io::Result<(usize, u32, u32)> {
+    fn next_frame<B: Buffer>(&mut self, buf: &mut B) -> io::Result<(usize, u32, u32)> {
         self.next_frame_impl(buf, None)
     }
-    fn next_frame_impl(
+    fn next_frame_impl<B: Buffer>(
         &mut self,
-        buf: &mut [u8],
+        buf: &mut B,
         region: Option<Region>,
     ) -> io::Result<(usize, u32, u32)>;
-    fn copy_resource(
+    fn copy_resource<B: Buffer>(
         &self,
         staging: ID3D11Texture2D,
         texture: &ID3D11Texture2D,
         region: Option<Region>,
         full_width: u32,
         full_height: u32,
-        buf: &mut [u8],
+        buf: &mut B,
     ) -> io::Result<(usize, u32, u32)> {
         const PIXEL_WIDTH: usize = 4;
         unsafe {
@@ -99,7 +99,8 @@ pub trait Grabber {
 
             let row_pitch = mapped.RowPitch as usize;
             let expected_size = target_height as usize * target_width as usize * PIXEL_WIDTH;
-
+            buf.resize(expected_size, 0);
+            let buf = buf.as_mut();
             if buf.len() < expected_size {
                 self.get_context().Unmap(&staging, 0);
                 return Err(io::Error::new(
