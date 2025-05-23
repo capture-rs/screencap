@@ -8,12 +8,14 @@ pub enum PixelFormat {
     BGR,
     #[default]
     BGRA,
+    YUV420,
 }
 impl PixelFormat {
     pub fn calc_frame_len(&self, width: u32, height: u32) -> usize {
         match self {
             PixelFormat::RGB | PixelFormat::BGR => width as usize * height as usize * 3,
             PixelFormat::RGBA | PixelFormat::BGRA => width as usize * height as usize * 4,
+            PixelFormat::YUV420 => (width as usize) * (height as usize) * 3 / 2,
         }
     }
 }
@@ -103,6 +105,35 @@ pub(crate) fn convert_bgra(
                     dst[..bytes_per_row].copy_from_slice(&src[..bytes_per_row])
                 }
             }
+        }
+        PixelFormat::YUV420 => {
+            let width = width as usize;
+            let height = height as usize;
+            let y_size = width * height;
+            let uv_size = (width / 2) * (height / 2);
+
+            let (y_plane, uv) = dst[..y_size + 2 * uv_size].split_at_mut(y_size);
+            let (u_plane, v_plane) = uv.split_at_mut(uv_size);
+
+            let mut planar = yuv::YuvPlanarImageMut {
+                y_plane: yuv::BufferStoreMut::Borrowed(y_plane),
+                y_stride: width as u32,
+                u_plane: yuv::BufferStoreMut::Borrowed(u_plane),
+                u_stride: (width / 2) as u32,
+                v_plane: yuv::BufferStoreMut::Borrowed(v_plane),
+                v_stride: (width / 2) as u32,
+                width: width as u32,
+                height: height as u32,
+            };
+            yuv::bgra_to_yuv420(
+                &mut planar,
+                src,
+                src_stride,
+                yuv::YuvRange::Limited,
+                yuv::YuvStandardMatrix::Bt601,
+                yuv::YuvConversionMode::default(),
+            )
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         }
     }
     Ok(len)
