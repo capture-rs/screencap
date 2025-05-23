@@ -1,5 +1,6 @@
 use crate::windows::monitor::Monitor;
-use crate::{Buffer, Region};
+use crate::{Buffer, PixelFormat, Region};
+use bytes::BytesMut;
 use std::io;
 use windows::core::PCWSTR;
 use windows::Win32::Graphics::Gdi::{
@@ -15,6 +16,7 @@ pub struct ScreenGrabber {
     width: u32,
     height: u32,
     hbmp: HBITMAP,
+    buffer: BytesMut,
 }
 impl Drop for ScreenGrabber {
     fn drop(&mut self) {
@@ -59,6 +61,7 @@ impl ScreenGrabber {
                 width,
                 height,
                 hbmp,
+                buffer: BytesMut::zeroed(width as usize * height as usize * 4),
             })
         }
     }
@@ -84,13 +87,12 @@ impl ScreenGrabber {
         self.height = new_height;
         Ok(())
     }
-    pub fn next_frame<B: Buffer>(&mut self, buf: &mut B) -> io::Result<(usize, u32, u32)> {
-        self.next_frame_impl(buf, None)
-    }
+
     pub fn next_frame_impl<B: Buffer>(
         &mut self,
         buf: &mut B,
         region: Option<Region>,
+        pixel_format: PixelFormat,
     ) -> io::Result<(usize, u32, u32)> {
         self.check_size()?;
         let (x, y, width, height) = if let Some(r) = region {
@@ -124,22 +126,16 @@ impl ScreenGrabber {
                 },
                 ..Default::default()
             };
-            let expected_size = (width * height * 4) as usize;
-            buf.resize(expected_size, 0);
-            let buf = buf.as_mut();
-            if buf.len() < expected_size {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "Buffer is too small to hold the frame data",
-                ));
-            }
 
+            self.buffer
+                .resize(PixelFormat::BGRA.calc_frame_len(width, height), 0);
+            let ptr = self.buffer.as_mut_ptr();
             let res = GetDIBits(
                 self.hdc_mem,
                 self.hbmp,
                 0,
                 height,
-                Some(buf.as_mut_ptr() as *mut _),
+                Some(ptr as *mut _),
                 &mut info,
                 DIB_RGB_COLORS,
             );
@@ -149,7 +145,17 @@ impl ScreenGrabber {
                     "GetDIBits error",
                 ));
             }
-
+            let expected_size = pixel_format.calc_frame_len(width, height);
+            buf.resize(expected_size, 0);
+            let dst = buf.as_mut();
+            let expected_size = crate::common::convert_bgra(
+                pixel_format,
+                &self.buffer,
+                width * 4,
+                dst,
+                width,
+                height,
+            )?;
             Ok((expected_size, width, height))
         }
     }

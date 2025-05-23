@@ -1,3 +1,4 @@
+use bytes::BytesMut;
 use std::io;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -7,6 +8,14 @@ pub enum PixelFormat {
     BGR,
     #[default]
     BGRA,
+}
+impl PixelFormat {
+    pub fn calc_frame_len(&self, width: u32, height: u32) -> usize {
+        match self {
+            PixelFormat::RGB | PixelFormat::BGR => width as usize * height as usize * 3,
+            PixelFormat::RGBA | PixelFormat::BGRA => width as usize * height as usize * 4,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -54,48 +63,49 @@ impl Region {
     }
 }
 
-pub(crate) fn convert_bgra_to_bgr(bgra: &mut [u8], width: u32, height: u32) -> usize {
-    let pixel_count = width as usize * height as usize;
-    let src_len = pixel_count * 4;
-    let dst_len = pixel_count * 3;
-
-    assert!(bgra.len() >= src_len);
-
-    let mut write_idx = 0;
-    for read_idx in (0..src_len).step_by(4) {
-        // 拷贝 B, G, R 三个通道
-        bgra[write_idx] = bgra[read_idx]; // B
-        bgra[write_idx + 1] = bgra[read_idx + 1]; // G
-        bgra[write_idx + 2] = bgra[read_idx + 2]; // R
-        write_idx += 3;
+pub(crate) fn convert_bgra(
+    pixel_format: PixelFormat,
+    src: &[u8],
+    src_stride: u32,
+    dst: &mut [u8],
+    width: u32,
+    height: u32,
+) -> io::Result<usize> {
+    let len = pixel_format.calc_frame_len(width, height);
+    if dst.len() < len {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Buffer is too small to hold the frame data",
+        ));
     }
-    dst_len
-}
-pub(crate) fn convert_bgra_to_rgba(buf: &mut [u8], width: u32, height: u32) {
-    let pixel_count = width as usize * height as usize;
-    assert!(buf.len() >= pixel_count * 4);
-
-    for i in 0..pixel_count {
-        let base = i * 4;
-        buf.swap(base, base + 2); // 交换 B 和 R
+    match pixel_format {
+        PixelFormat::RGB => {
+            yuv::bgra_to_rgb(src, src_stride, dst, width * 3, width, height)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        }
+        PixelFormat::RGBA => {
+            yuv::bgra_to_rgba(src, src_stride, dst, width * 4, width, height)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        }
+        PixelFormat::BGR => {
+            yuv::bgra_to_bgr(src, src_stride, dst, width * 3, width, height)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        }
+        PixelFormat::BGRA => {
+            if src_stride == width * 4 {
+                dst[..len].copy_from_slice(src)
+            } else {
+                // 拷贝每一行（确保跳过 src_stride 的填充字节）
+                let bytes_per_row = width as usize * 4;
+                for y in 0..height as usize {
+                    let src = &src[y * src_stride as usize..];
+                    let dst = &mut dst[y * bytes_per_row..];
+                    dst[..bytes_per_row].copy_from_slice(&src[..bytes_per_row])
+                }
+            }
+        }
     }
-}
-pub(crate) fn convert_bgra_to_rgb(buf: &mut [u8], width: u32, height: u32) -> usize {
-    let pixel_count = width as usize * height as usize;
-    let src_len = pixel_count * 4;
-    let dst_len = pixel_count * 3;
-
-    assert!(buf.len() >= src_len);
-
-    let mut write = 0;
-    for read in (0..src_len).step_by(4) {
-        buf[write] = buf[read + 2]; // R
-        buf[write + 1] = buf[read + 1]; // G
-        buf[write + 2] = buf[read]; // B
-        write += 3;
-    }
-
-    dst_len
+    Ok(len)
 }
 pub trait Buffer: AsMut<[u8]> + AsRef<[u8]> {
     fn resize(&mut self, _new_len: usize, _value: u8) {}
@@ -107,7 +117,17 @@ impl Buffer for Vec<u8> {
 }
 impl Buffer for &mut Vec<u8> {
     fn resize(&mut self, new_len: usize, value: u8) {
-        Vec::<u8>::resize(*self, new_len, value);
+        Vec::<u8>::resize(self, new_len, value);
+    }
+}
+impl Buffer for BytesMut {
+    fn resize(&mut self, new_len: usize, value: u8) {
+        BytesMut::resize(self, new_len, value);
+    }
+}
+impl Buffer for &mut BytesMut {
+    fn resize(&mut self, new_len: usize, value: u8) {
+        BytesMut::resize(self, new_len, value);
     }
 }
 impl Buffer for &mut [u8] {}

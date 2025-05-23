@@ -1,6 +1,6 @@
 use crate::windows::common::Grabber;
 use crate::windows::monitor::Monitor;
-use crate::{Buffer, Region};
+use crate::{Buffer, PixelFormat, Region};
 use std::io;
 use windows::core::Interface;
 use windows::Win32::Foundation::HMODULE;
@@ -84,13 +84,22 @@ impl Grabber for ScreenGrabber {
         &mut self,
         buf: &mut B,
         region: Option<Region>,
+        pixel_format: PixelFormat,
     ) -> io::Result<(usize, u32, u32)> {
         let texture = self.next_texture();
         let _guard = DxgiFrameGuard(&self.duplication);
         let texture = texture?;
         let (desc, full_width, full_height) = self.get_desc(&texture, region)?;
         let staging = self.create_texture2d(desc)?;
-        self.copy_resource(staging, &texture, region, full_width, full_height, buf)
+        self.copy_resource(
+            staging,
+            &texture,
+            region,
+            full_width,
+            full_height,
+            buf,
+            pixel_format,
+        )
     }
 }
 struct DxgiFrameGuard<'a>(&'a IDXGIOutputDuplication);

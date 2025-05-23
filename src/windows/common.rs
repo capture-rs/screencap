@@ -1,4 +1,4 @@
-use crate::{Buffer, Region};
+use crate::{Buffer, PixelFormat, Region};
 use std::io;
 use windows::Win32::Graphics::Direct3D11::{
     ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D, D3D11_BOX, D3D11_CPU_ACCESS_READ,
@@ -42,14 +42,13 @@ pub trait Grabber {
         }
     }
 
-    fn next_frame<B: Buffer>(&mut self, buf: &mut B) -> io::Result<(usize, u32, u32)> {
-        self.next_frame_impl(buf, None)
-    }
     fn next_frame_impl<B: Buffer>(
         &mut self,
         buf: &mut B,
         region: Option<Region>,
+        pixel_format: PixelFormat,
     ) -> io::Result<(usize, u32, u32)>;
+    #[allow(clippy::too_many_arguments)]
     fn copy_resource<B: Buffer>(
         &self,
         staging: ID3D11Texture2D,
@@ -58,8 +57,8 @@ pub trait Grabber {
         full_width: u32,
         full_height: u32,
         buf: &mut B,
+        pixel_format: PixelFormat,
     ) -> io::Result<(usize, u32, u32)> {
-        const PIXEL_WIDTH: usize = 4;
         unsafe {
             let (target_width, target_height, staging) = if let Some(Region {
                 left,
@@ -98,34 +97,23 @@ pub trait Grabber {
                 .Map(&staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
 
             let row_pitch = mapped.RowPitch as usize;
-            let expected_size = target_height as usize * target_width as usize * PIXEL_WIDTH;
+            let expected_size = pixel_format.calc_frame_len(target_width, target_height);
             buf.resize(expected_size, 0);
             let buf = buf.as_mut();
-            if buf.len() < expected_size {
-                self.get_context().Unmap(&staging, 0);
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "Buffer is too small to hold the frame data",
-                ));
-            }
-            if expected_size as u32 == mapped.DepthPitch {
-                std::ptr::copy_nonoverlapping(
-                    mapped.pData as *const u8,
-                    buf.as_mut_ptr(),
-                    expected_size,
-                )
-            } else {
-                // 拷贝每一行（确保跳过 row_pitch 的填充字节）
-                let bytes_per_row = target_width as usize * PIXEL_WIDTH;
-                for y in 0..target_height as usize {
-                    let src = (mapped.pData as *const u8).add(y * row_pitch);
-                    let dst = buf.as_mut_ptr().add(y * bytes_per_row);
-                    std::ptr::copy_nonoverlapping(src, dst, bytes_per_row);
-                }
-            }
+
+            let src =
+                std::slice::from_raw_parts(mapped.pData as *const u8, mapped.DepthPitch as usize);
+            let rs = crate::common::convert_bgra(
+                pixel_format,
+                src,
+                row_pitch as _,
+                buf,
+                target_width,
+                target_height,
+            );
 
             self.get_context().Unmap(&staging, 0);
-            Ok((expected_size, target_width, target_height))
+            Ok((rs?, target_width, target_height))
         }
     }
 }

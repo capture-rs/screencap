@@ -56,28 +56,25 @@ impl ScreenGrabber {
     }
 
     pub fn next_frame<B: Buffer>(&mut self, buf: &mut B) -> io::Result<(usize, u32, u32)> {
-        match &mut self.backend {
-            CaptureBackend::Graphics(g) => g.next_frame(buf),
-            CaptureBackend::Dxgi(g) => g.next_frame(buf),
-            CaptureBackend::Gdi(g) => g.next_frame(buf),
-        }
+        self.next_frame_region_inner(buf, None, PixelFormat::BGRA)
     }
     pub fn next_frame_region<B: Buffer>(
         &mut self,
         buf: &mut B,
         region: Region,
     ) -> io::Result<(usize, u32, u32)> {
-        self.next_frame_region_inner(buf, Some(region))
+        self.next_frame_region_inner(buf, Some(region), PixelFormat::BGRA)
     }
     fn next_frame_region_inner<B: Buffer>(
         &mut self,
         buf: &mut B,
         region: Option<Region>,
+        pixel_format: PixelFormat,
     ) -> io::Result<(usize, u32, u32)> {
         match &mut self.backend {
-            CaptureBackend::Graphics(g) => g.next_frame_impl(buf, region),
-            CaptureBackend::Dxgi(g) => g.next_frame_impl(buf, region),
-            CaptureBackend::Gdi(g) => g.next_frame_impl(buf, region),
+            CaptureBackend::Graphics(g) => g.next_frame_impl(buf, region, pixel_format),
+            CaptureBackend::Dxgi(g) => g.next_frame_impl(buf, region, pixel_format),
+            CaptureBackend::Gdi(g) => g.next_frame_impl(buf, region, pixel_format),
         }
     }
 
@@ -87,15 +84,7 @@ impl ScreenGrabber {
         region: Option<Region>,
         pixel_format: PixelFormat,
     ) -> io::Result<(usize, u32, u32)> {
-        let (mut len, width, height) = self.next_frame_region_inner(buf, region)?;
-        let buf = buf.as_mut();
-        match pixel_format {
-            PixelFormat::RGB => len = convert_bgra_to_rgb(&mut buf[..len], width, height),
-            PixelFormat::RGBA => convert_bgra_to_rgba(&mut buf[..len], width, height),
-            PixelFormat::BGR => len = convert_bgra_to_bgr(&mut buf[..len], width, height),
-            PixelFormat::BGRA => {}
-        }
-        Ok((len, width, height))
+        self.next_frame_region_inner(buf, region, pixel_format)
     }
     pub fn capture_method(&self) -> CaptureMethod {
         match &self.backend {

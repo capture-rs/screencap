@@ -1,6 +1,6 @@
 use crate::windows::common::Grabber;
 use crate::windows::monitor::Monitor;
-use crate::{Buffer, Region};
+use crate::{Buffer, PixelFormat, Region};
 use std::io;
 use std::ops::Deref;
 use std::sync::mpsc::{self, Receiver};
@@ -161,11 +161,20 @@ impl Grabber for ScreenGrabber {
         &mut self,
         buf: &mut B,
         region: Option<Region>,
+        pixel_format: PixelFormat,
     ) -> io::Result<(usize, u32, u32)> {
         let (texture, _guard) = self.next_texture()?;
         let (desc, full_width, full_height) = self.get_desc(&texture, region)?;
         let staging = self.create_texture2d(desc)?;
-        self.copy_resource(staging, &texture, region, full_width, full_height, buf)
+        self.copy_resource(
+            staging,
+            &texture,
+            region,
+            full_width,
+            full_height,
+            buf,
+            pixel_format,
+        )
     }
 }
 struct OwnedDirect3D11CaptureFrame(Direct3D11CaptureFrame);

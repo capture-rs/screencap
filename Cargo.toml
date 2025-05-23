@@ -8,6 +8,8 @@ repository = "https://github.com/capture-rs/screencap"
 keywords = ["dxgi", "gdi", "screen"]
 
 [dependencies]
+bytes = "1"
+yuv = "0.8.4"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61.1", features = [
