@@ -1,6 +1,14 @@
 # screencap
 Capture screen data
 
+## Supported Platforms
+
+| Platform |   |
+|----------|---|
+| Windows  | ✅ |
+| macOS    | ✅ |
+
+
 ```rust
 use screencap::{CaptureType, Monitor, Region, PixelFormat};
 use std::io;
