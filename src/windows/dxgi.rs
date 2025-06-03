@@ -37,10 +37,8 @@ impl ScreenGrabber {
                 Some(&mut context),
             )?;
 
-            let device =
-                device.ok_or_else(|| io::Error::new(io::ErrorKind::Other, "No D3D11 device"))?;
-            let context =
-                context.ok_or_else(|| io::Error::new(io::ErrorKind::Other, "No D3D11 context"))?;
+            let device = device.ok_or_else(|| io::Error::other("No D3D11 device"))?;
+            let context = context.ok_or_else(|| io::Error::other("No D3D11 context"))?;
 
             let dxgi_device: IDXGIDevice = device.cast()?;
             let adapter = dxgi_device.GetAdapter()?;
@@ -63,9 +61,8 @@ impl ScreenGrabber {
             self.duplication
                 .AcquireNextFrame(500, &mut frame_info, &mut desktop_resource)?;
 
-            let desktop_resource = desktop_resource.ok_or_else(|| {
-                io::Error::new(io::ErrorKind::Other, "Failed to acquire desktop resource")
-            })?;
+            let desktop_resource = desktop_resource
+                .ok_or_else(|| io::Error::other("Failed to acquire desktop resource"))?;
 
             let desktop_texture: ID3D11Texture2D = desktop_resource.cast()?;
             Ok(desktop_texture)

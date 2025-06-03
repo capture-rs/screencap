@@ -36,9 +36,7 @@ pub trait Grabber {
             let mut tex = None;
             self.get_device()
                 .CreateTexture2D(&desc, None, Some(&mut tex))?;
-            tex.ok_or_else(|| {
-                io::Error::new(io::ErrorKind::Other, "Failed to create staging texture")
-            })
+            tex.ok_or_else(|| io::Error::other("Failed to create staging texture"))
         }
     }
 

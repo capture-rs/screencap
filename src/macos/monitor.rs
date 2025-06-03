@@ -18,8 +18,7 @@ impl Monitor {
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Monitor index out of range"))
     }
     pub fn all() -> io::Result<Vec<Self>> {
-        let list = CGDisplay::active_displays()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+        let list = CGDisplay::active_displays().map_err(|e| io::Error::other(format!("{e}")))?;
         let mut rs = Vec::with_capacity(list.len());
         if list.is_empty() {
             return Ok(rs);

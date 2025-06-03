@@ -142,7 +142,7 @@ impl ScreenGrabber {
                     e.code().ok()?;
                     self.receiver
                         .recv()
-                        .map_err(|_e| io::Error::new(io::ErrorKind::Other, "channel closed"))?;
+                        .map_err(|_e| io::Error::other("channel closed"))?;
                 }
             }
         }
@@ -201,8 +201,8 @@ fn create_d3d11_device() -> io::Result<(ID3D11Device, ID3D11DeviceContext)> {
     }
 
     Ok((
-        device.ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to create device"))?,
-        context.ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to create context"))?,
+        device.ok_or_else(|| io::Error::other("Failed to create device"))?,
+        context.ok_or_else(|| io::Error::other("Failed to create context"))?,
     ))
 }
 
