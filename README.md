@@ -3,10 +3,11 @@ Capture screen data
 
 ## Supported Platforms
 
-| Platform |   |
-|----------|---|
-| Windows  | ✅ |
-| macOS    | ✅ |
+| Platform    |   |
+|-------------|---|
+| Linux (X11) | ✅ |
+| Windows     | ✅ |
+| macOS       | ✅ |
 
 
 ```rust
